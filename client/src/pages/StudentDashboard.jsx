@@ -131,7 +131,16 @@ export default function StudentDashboard({ student, setStudent }) {
       </nav>
 
       <div className="container">
-        <div className="stats-grid">
+        <div className="stats-grid" style={{
+          position: 'sticky',
+          top: '70px',
+          zIndex: 50,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          padding: '1rem',
+          borderRadius: '15px',
+          marginBottom: '2rem',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+        }}>
           <div className="stat-card points">
             <div className="stat-icon">💰</div>
             <div className="stat-info">

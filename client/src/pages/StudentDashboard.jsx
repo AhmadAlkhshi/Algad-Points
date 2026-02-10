@@ -11,6 +11,8 @@ export default function StudentDashboard({ student, setStudent }) {
   const [cart, setCart] = useState([]);
   const [useDebt, setUseDebt] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -93,10 +95,12 @@ export default function StudentDashboard({ student, setStudent }) {
       return;
     }
 
-    if (!confirm(`تأكيد شراء ${cart.length} لعبة بمجموع ${cartTotal} نقطة؟`)) {
-      return;
-    }
+    setShowConfirmModal(true);
+  };
 
+  const confirmCheckout = async () => {
+    setIsCheckingOut(true);
+    
     try {
       for (const item of cart) {
         for (let i = 0; i < item.quantity; i++) {
@@ -111,10 +115,13 @@ export default function StudentDashboard({ student, setStudent }) {
       alert('تم الشراء بنجاح!');
       setCart([]);
       setUseDebt(false);
+      setShowConfirmModal(false);
       fetchStudentData();
       fetchPurchases();
     } catch (err) {
       alert(err.response?.data?.error || 'حدث خطأ');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -131,16 +138,50 @@ export default function StudentDashboard({ student, setStudent }) {
       </nav>
 
       <div className="container">
-        <div className="stats-grid" style={{
+        {/* عداد النقاط الثابت */}
+        <div style={{
           position: 'sticky',
-          top: '70px',
-          zIndex: 50,
+          top: '80px',
+          zIndex: 90,
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           padding: '1rem',
           borderRadius: '15px',
-          marginBottom: '2rem',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+          marginBottom: '1.5rem',
+          boxShadow: '0 5px 25px rgba(0,0,0,0.3)'
         }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '1rem'
+          }}>
+            <div style={{ textAlign: 'center', color: 'white' }}>
+              <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>💰 نقاطك</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{currentStudent.points}</div>
+            </div>
+            <div style={{ textAlign: 'center', color: 'white' }}>
+              <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>📊 الدين</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: '700', color: currentStudent.debt > 0 ? '#ff6b6b' : '#4fffb0' }}>
+                {currentStudent.debt}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', color: 'white' }}>
+              <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>🛍️ في السلة</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>{cartTotal}</div>
+            </div>
+            <div style={{ textAlign: 'center', color: 'white' }}>
+              <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>✨ الباقي</div>
+              <div style={{ 
+                fontSize: '1.8rem', 
+                fontWeight: '700',
+                color: remainingPoints < 0 ? '#ff6b6b' : '#4fffb0'
+              }}>
+                {remainingPoints}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="stats-grid">
           <div className="stat-card points">
             <div className="stat-icon">💰</div>
             <div className="stat-info">
@@ -250,10 +291,11 @@ export default function StudentDashboard({ student, setStudent }) {
                 <button 
                   onClick={handleCheckout} 
                   className="btn-checkout"
-                  disabled={remainingPoints < 0}
+                  disabled={remainingPoints < 0 || isCheckingOut}
                   style={{
                     padding: '1rem 2.5rem',
-                    fontSize: '1.1rem'
+                    fontSize: '1.1rem',
+                    opacity: (remainingPoints < 0 || isCheckingOut) ? 0.6 : 1
                   }}
                 >
                   {remainingPoints < 0 ? 'نقاط غير كافية' : '✅ تأكيد الشراء'}
@@ -331,6 +373,136 @@ export default function StudentDashboard({ student, setStudent }) {
           onClose={() => setSelectedImage(null)}
         />
       )}
+
+      {/* شاشة تأكيد الشراء */}
+      {showConfirmModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ color: '#667eea', marginBottom: '1.5rem', textAlign: 'center' }}>
+              🛍️ تأكيد الشراء
+            </h2>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#333' }}>الألعاب:</h3>
+              {cart.map(item => (
+                <div key={item.id} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '0.8rem',
+                  background: '#f8f9fa',
+                  borderRadius: '10px',
+                  marginBottom: '0.5rem'
+                }}>
+                  <span>{item.name} x{item.quantity}</span>
+                  <span style={{ fontWeight: '700', color: '#667eea' }}>
+                    {item.points * item.quantity} نقطة
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '1.5rem',
+              borderRadius: '15px',
+              color: 'white',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span>المجموع:</span>
+                <span style={{ fontSize: '1.3rem', fontWeight: '700' }}>{cartTotal} نقطة</span>
+              </div>
+              {useDebt && (
+                <div style={{ fontSize: '0.9rem', opacity: 0.9, marginTop: '0.5rem' }}>
+                  💳 باستخدام الدين
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isCheckingOut}
+                style={{
+                  flex: 1,
+                  padding: '1rem',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isCheckingOut ? 'not-allowed' : 'pointer',
+                  opacity: isCheckingOut ? 0.5 : 1
+                }}
+              >
+                ✖️ إلغاء
+              </button>
+              <button
+                onClick={confirmCheckout}
+                disabled={isCheckingOut}
+                style={{
+                  flex: 1,
+                  padding: '1rem',
+                  background: isCheckingOut ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  cursor: isCheckingOut ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                {isCheckingOut ? (
+                  <>
+                    <span style={{
+                      width: '20px',
+                      height: '20px',
+                      border: '3px solid white',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }}></span>
+                    جاري الشراء...
+                  </>
+                ) : (
+                  '✅ تأكيد'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

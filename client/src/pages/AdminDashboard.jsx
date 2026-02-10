@@ -52,7 +52,7 @@ export default function AdminDashboard({ setAdmin }) {
     localStorage.removeItem("admin");
     localStorage.removeItem("token");
     setAdmin(null);
-    navigate("/admin/login");
+    navigate("/admin/login", { replace: true });
   };
 
   const handleAddStudent = async (e) => {
@@ -131,7 +131,10 @@ export default function AdminDashboard({ setAdmin }) {
     <div className="admin-dashboard">
       <div className="admin-container">
         <div className="admin-header">
-          <h1>🎮 لوحة تحكم الأدمن</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <img src="/logo.jpg" alt="Logo" style={{ height: '60px', width: 'auto' }} />
+            <h1>برنامج النقاط في ثانوية الغد المشرق الشرعية فرع جامع حموليلا</h1>
+          </div>
           <button onClick={handleLogout} className="btn-logout">
             تسجيل خروج
           </button>
@@ -569,9 +572,9 @@ export default function AdminDashboard({ setAdmin }) {
                         )
                           return;
                         try {
-                          for (const id of selectedPurchases) {
-                            await api.delete(`/api/purchases/${id}`);
-                          }
+                          await Promise.all(
+                            selectedPurchases.map(id => api.delete(`/api/purchases/${id}`))
+                          );
                           alert(
                             `تم حذف ${selectedPurchases.length} عملية بنجاح`,
                           );
@@ -579,7 +582,8 @@ export default function AdminDashboard({ setAdmin }) {
                           fetchPurchases();
                           fetchStudents();
                         } catch (err) {
-                          alert(err.response?.data?.error || "حدث خطأ");
+                          console.error('Delete error:', err);
+                          alert(err.response?.data?.error || "حدث خطأ: " + err.message);
                         }
                       }}
                       style={{

@@ -6,27 +6,33 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminLogin from './pages/AdminLogin';
 
 function App() {
-  const [student, setStudent] = useState(null);
-  const [admin, setAdmin] = useState(null);
+  const [student, setStudent] = useState(() => {
+    const saved = localStorage.getItem('student');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [admin, setAdmin] = useState(() => {
+    const saved = localStorage.getItem('admin');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedStudent = localStorage.getItem('student');
-    const savedAdmin = localStorage.getItem('admin');
-    const token = localStorage.getItem('token');
-    
-    if (savedStudent && token) {
-      setStudent(JSON.parse(savedStudent));
-    }
-    if (savedAdmin && token) {
-      setAdmin(JSON.parse(savedAdmin));
-    }
+    setLoading(false);
   }, []);
+
+  if (loading) return null;
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login setStudent={setStudent} />} />
-        <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
+        <Route 
+          path="/" 
+          element={student ? <Navigate to="/student" /> : <Login setStudent={setStudent} />} 
+        />
+        <Route 
+          path="/admin/login" 
+          element={admin ? <Navigate to="/admin" /> : <AdminLogin setAdmin={setAdmin} />} 
+        />
         <Route 
           path="/student" 
           element={student ? <StudentDashboard student={student} setStudent={setStudent} /> : <Navigate to="/" />} 

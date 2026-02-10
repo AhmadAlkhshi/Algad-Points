@@ -54,7 +54,7 @@ export default function StudentDashboard({ student, setStudent }) {
     localStorage.removeItem('student');
     localStorage.removeItem('token');
     setStudent(null);
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const addToCart = (game) => {
@@ -129,7 +129,10 @@ export default function StudentDashboard({ student, setStudent }) {
     <div className="student-dashboard">
       <nav className="navbar">
         <div className="nav-content">
-          <h1 className="logo">🎮 PointsMarket</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <img src="/logo.jpg" alt="Logo" style={{ height: '50px', width: 'auto' }} />
+            <h1 className="logo">برنامج النقاط في ثانوية الغد المشرق الشرعية فرع جامع حموليلا</h1>
+          </div>
           <div className="nav-right">
             <span className="welcome">مرحباً، {currentStudent.name}</span>
             <button onClick={handleLogout} className="btn-logout">تسجيل خروج</button>

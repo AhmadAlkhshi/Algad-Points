@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '../styles/Login.css';
@@ -10,6 +10,14 @@ export default function Login({ setStudent }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const student = localStorage.getItem('student');
+    const token = localStorage.getItem('token');
+    if (student && token) {
+      navigate('/student', { replace: true });
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -28,7 +36,7 @@ export default function Login({ setStudent }) {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-icon">🎮</div>
+          <img src="/logo.jpg" alt="Logo" style={{ width: '120px', height: 'auto', marginBottom: '1rem' }} />
           <h2>تسجيل دخول الطالب</h2>
           <p>ادخل بياناتك للوصول إلى متجر النقاط</p>
         </div>
@@ -58,9 +66,6 @@ export default function Login({ setStudent }) {
             دخول
           </button>
         </form>
-        <div className="login-footer">
-          <a href="/admin/login">🔒 دخول الأدمن</a>
-        </div>
       </div>
     </div>
   );

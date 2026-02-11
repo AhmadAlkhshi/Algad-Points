@@ -131,9 +131,15 @@ export default function AdminDashboard({ setAdmin }) {
     <div className="admin-dashboard">
       <div className="admin-container">
         <div className="admin-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <img src="/logo.jpg" alt="Logo" style={{ height: '60px', width: 'auto' }} />
-            <h1>برنامج النقاط في ثانوية الغد المشرق الشرعية فرع جامع حموليلا</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <img
+              src="/logo.jpg"
+              alt="Logo"
+              style={{ height: "60px", width: "auto" }}
+            />
+            <h1>
+              برنامج النقاط في ثانوية الغد المشرق الشرعية - فرع جامع حموليلا
+            </h1>
           </div>
           <button onClick={handleLogout} className="btn-logout">
             تسجيل خروج
@@ -213,6 +219,24 @@ export default function AdminDashboard({ setAdmin }) {
                       required
                     />
                     <input
+                      type="text"
+                      placeholder="الصف (مثال: الصف الأول)"
+                      value={form.grade || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, grade: e.target.value })
+                      }
+                      className="form-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="الشعبة (مثال: أ)"
+                      value={form.section || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, section: e.target.value })
+                      }
+                      className="form-input"
+                    />
+                    <input
                       type="number"
                       placeholder="النقاط"
                       value={form.points || ""}
@@ -271,6 +295,8 @@ export default function AdminDashboard({ setAdmin }) {
                   <tr>
                     <th>رقم الطالب</th>
                     <th>الاسم</th>
+                    <th>الصف</th>
+                    <th>الشعبة</th>
                     <th>كلمة المرور</th>
                     <th>النقاط</th>
                     <th>الدين</th>
@@ -294,6 +320,8 @@ export default function AdminDashboard({ setAdmin }) {
                         <tr key={s.id}>
                           <td>{s.student_id}</td>
                           <td>{s.name}</td>
+                          <td>{s.grade || '-'}</td>
+                          <td>{s.section || '-'}</td>
                           <td
                             style={{
                               color: "#667eea",
@@ -342,6 +370,8 @@ export default function AdminDashboard({ setAdmin }) {
                                 setEditId(s.id);
                                 setForm({
                                   name: s.name,
+                                  grade: s.grade,
+                                  section: s.section,
                                   points: s.points,
                                   debt: s.debt,
                                 });
@@ -573,7 +603,9 @@ export default function AdminDashboard({ setAdmin }) {
                           return;
                         try {
                           await Promise.all(
-                            selectedPurchases.map(id => api.delete(`/api/purchases/${id}`))
+                            selectedPurchases.map((id) =>
+                              api.delete(`/api/purchases/${id}`),
+                            ),
                           );
                           alert(
                             `تم حذف ${selectedPurchases.length} عملية بنجاح`,
@@ -582,8 +614,11 @@ export default function AdminDashboard({ setAdmin }) {
                           fetchPurchases();
                           fetchStudents();
                         } catch (err) {
-                          console.error('Delete error:', err);
-                          alert(err.response?.data?.error || "حدث خطأ: " + err.message);
+                          console.error("Delete error:", err);
+                          alert(
+                            err.response?.data?.error ||
+                              "حدث خطأ: " + err.message,
+                          );
                         }
                       }}
                       style={{
@@ -708,15 +743,73 @@ export default function AdminDashboard({ setAdmin }) {
             <div>
               <h2>📊 التقارير والإحصائيات</h2>
 
+              {/* تقرير حسب الصفوف */}
+              <div style={{ marginBottom: '3rem' }}>
+                <h3 style={{ marginBottom: '1.5rem', color: '#10b981' }}>🏫 تقرير حسب الصفوف</h3>
+                {(() => {
+                  const gradeGroups = {};
+                  students.forEach(student => {
+                    const grade = student.grade || 'غير محدد';
+                    if (!gradeGroups[grade]) gradeGroups[grade] = [];
+                    gradeGroups[grade].push(student);
+                  });
+
+                  return Object.keys(gradeGroups).sort().map(grade => {
+                    const gradeStudents = gradeGroups[grade];
+                    const gradePurchases = purchases.filter(p => gradeStudents.some(s => s.id === p.student_id));
+                    const gamesSummary = {};
+                    gradePurchases.forEach(p => {
+                      const gameName = p.games?.name || 'غير معروف';
+                      gamesSummary[gameName] = (gamesSummary[gameName] || 0) + 1;
+                    });
+
+                    return (
+                      <div key={grade} style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '15px', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h4 style={{ margin: 0, color: '#10b981', fontSize: '1.3rem' }}>{grade} ({gradeStudents.length} طالب)</h4>
+                          <button onClick={() => {
+                            const printContent = `<html dir="rtl"><head><title>تقرير ${grade}</title><style>body{font-family:Arial;padding:20px}h1{color:#10b981}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#10b981;color:white}.summary{background:#e8f5e9;padding:15px;border-radius:10px;margin:20px 0}</style></head><body><h1>🏫 تقرير ${grade}</h1><p><strong>عدد الطلاب:</strong> ${gradeStudents.length}</p><div class="summary"><h2>🎮 ملخص الألعاب المطلوبة</h2><table><thead><tr><th>اللعبة</th><th>العدد</th></tr></thead><tbody>${Object.entries(gamesSummary).sort((a,b)=>b[1]-a[1]).map(([g,c])=>`<tr><td>${g}</td><td style="font-weight:bold;color:#10b981">${c}</td></tr>`).join('')}</tbody></table></div><h2>👥 تفاصيل الطلاب</h2>${gradeStudents.map(s=>{const sp=purchases.filter(p=>p.student_id===s.id);return`<div style="margin:20px 0;padding:15px;background:#f8f9fa;border-radius:10px"><h3>${s.name} (${s.student_id})</h3>${sp.length>0?`<table><thead><tr><th>اللعبة</th><th>النقاط</th><th>التاريخ</th></tr></thead><tbody>${sp.map((p,i)=>`<tr><td>${p.games?.name}</td><td>${p.points_paid}</td><td>${new Date(p.created_at).toLocaleDateString('ar')}</td></tr>`).join('')}</tbody></table>`:'<p style="color:#999">لم يشتري بعد</p>'}</div>`;}).join('')}<p style="margin-top:30px;color:#666;font-size:0.9rem">تاريخ الطباعة: ${new Date().toLocaleString('ar')}</p></body></html>`;
+                            const w=window.open('','','width=800,height=600');w.document.write(printContent);w.document.close();w.print();
+                          }} style={{ padding:'0.8rem 1.5rem',background:'linear-gradient(135deg,#10b981 0%,#059669 100%)',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600' }}>🖨️ طباعة {grade}</button>
+                        </div>
+                        <div style={{ background:'white',padding:'1rem',borderRadius:'10px',marginBottom:'1rem' }}>
+                          <h5 style={{ margin:'0 0 0.8rem 0',color:'#333' }}>🎮 الألعاب المطلوبة:</h5>
+                          <div style={{ display:'flex',flexWrap:'wrap',gap:'0.5rem' }}>
+                            {Object.entries(gamesSummary).length>0?Object.entries(gamesSummary).sort((a,b)=>b[1]-a[1]).map(([g,c])=>(<span key={g} style={{ background:'linear-gradient(135deg,#10b981 0%,#059669 100%)',color:'white',padding:'0.5rem 1rem',borderRadius:'20px',fontSize:'0.9rem',fontWeight:'600' }}>{g}: {c}</span>)):<span style={{color:'#999'}}>لا توجد مشتريات</span>}
+                          </div>
+                        </div>
+                        <details style={{marginTop:'1rem'}}>
+                          <summary style={{ cursor:'pointer',padding:'0.8rem',background:'white',borderRadius:'8px',fontWeight:'600',color:'#333' }}>👥 عرض تفاصيل الطلاب ({gradeStudents.length})</summary>
+                          <div style={{marginTop:'1rem'}}>
+                            {gradeStudents.map(s=>{const sp=purchases.filter(p=>p.student_id===s.id);return(<div key={s.id} style={{ background:'white',padding:'1rem',borderRadius:'10px',marginBottom:'0.8rem' }}><div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem' }}><strong>{s.name}</strong><span style={{color:'#666',fontSize:'0.9rem'}}>{s.student_id}</span></div>{sp.length>0?(<ul style={{margin:0,paddingRight:'1.5rem',color:'#666'}}>{sp.map(p=>(<li key={p.id}>{p.games?.name} - {p.points_paid} نقطة</li>))}</ul>):(<p style={{margin:0,color:'#999',fontSize:'0.9rem'}}>لم يشتري بعد</p>)}</div>);})}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
               <div style={{ marginBottom: "3rem" }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "1rem",
+                  }}
+                >
                   <h3>🎮 إحصائيات الألعاب</h3>
                   <button
                     onClick={() => {
-                      const lowStockGames = games.map(game => {
-                        const soldCount = purchases.filter(p => p.game_id === game.id).length;
-                        return { ...game, soldCount };
-                      }).filter(g => g.soldCount > 0);
+                      const lowStockGames = games
+                        .map((game) => {
+                          const soldCount = purchases.filter(
+                            (p) => p.game_id === game.id,
+                          ).length;
+                          return { ...game, soldCount };
+                        })
+                        .filter((g) => g.soldCount > 0);
 
                       const printContent = `
                         <html dir="rtl">
@@ -735,7 +828,7 @@ export default function AdminDashboard({ setAdmin }) {
                         </head>
                         <body>
                           <h1>📊 تقرير الألعاب المباعة</h1>
-                          <p><strong>تاريخ التقرير:</strong> ${new Date().toLocaleString('ar')}</p>
+                          <p><strong>تاريخ التقرير:</strong> ${new Date().toLocaleString("ar")}</p>
                           <h2>الألعاب التي تحتاج إعادة تجهيز:</h2>
                           <table>
                             <thead>
@@ -748,34 +841,43 @@ export default function AdminDashboard({ setAdmin }) {
                               </tr>
                             </thead>
                             <tbody>
-                              ${lowStockGames.map((g, i) => `
-                                <tr class="${g.soldCount >= 10 ? 'high' : g.soldCount >= 5 ? 'medium' : 'low'}">
+                              ${lowStockGames
+                                .map(
+                                  (g, i) => `
+                                <tr class="${g.soldCount >= 10 ? "high" : g.soldCount >= 5 ? "medium" : "low"}">
                                   <td>${i + 1}</td>
                                   <td>${g.name}</td>
                                   <td>${g.soldCount}</td>
                                   <td>${g.points} نقطة</td>
-                                  <td>${g.soldCount >= 10 ? '❗ مطلوب بكثرة' : g.soldCount >= 5 ? '⚠️ مطلوب' : '✅ متوسط'}</td>
+                                  <td>${g.soldCount >= 10 ? "❗ مطلوب بكثرة" : g.soldCount >= 5 ? "⚠️ مطلوب" : "✅ متوسط"}</td>
                                 </tr>
-                              `).join('')}
+                              `,
+                                )
+                                .join("")}
                             </tbody>
                           </table>
-                          <p style="margin-top: 30px; color: #666; font-size: 0.9rem;">تاريخ الطباعة: ${new Date().toLocaleString('ar')}</p>
+                          <p style="margin-top: 30px; color: #666; font-size: 0.9rem;">تاريخ الطباعة: ${new Date().toLocaleString("ar")}</p>
                         </body>
                         </html>
                       `;
-                      const printWindow = window.open('', '', 'width=800,height=600');
+                      const printWindow = window.open(
+                        "",
+                        "",
+                        "width=800,height=600",
+                      );
                       printWindow.document.write(printContent);
                       printWindow.document.close();
                       printWindow.print();
                     }}
                     style={{
-                      padding: '0.8rem 1.5rem',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: '600'
+                      padding: "0.8rem 1.5rem",
+                      background:
+                        "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "600",
                     }}
                   >
                     📊 تقرير الألعاب المباعة

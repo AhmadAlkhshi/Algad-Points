@@ -3,13 +3,43 @@ import { useNavigate } from "react-router-dom";
 import api from "../api";
 import ImageUpload from "../components/ImageUpload";
 import ExcelUpload from "../components/ExcelUpload";
+import GamesExcelUpload from "../components/GamesExcelUpload";
 import "../styles/AdminDashboard.css";
+
+// ========== رسالة الواتساب - غيرها من هون ==========
+const WHATSAPP_MESSAGE = (
+  studentName,
+  studentId,
+  password,
+  points,
+  websiteUrl,
+) =>
+  `
+السلام عليكم ورحمة الله وبركاته
+
+ الله يعطيكم العافية  
+
+بيانات حساب الطالب *${studentName}* في نظام النقاط في ثانوية الغد المشرق الشرعية - فرع جامع حموليلا:
+
+ رقم الطالب: ${studentId}
+ كلمة المرور: ${password}
+
+
+ نقاط الطالب الحالية: ${points}
+
+رابط تسجيل الدخول:
+${websiteUrl}
+
+احتفظ بهذه البيانات في مكان آمن! 
+`.trim();
+// =============================================
 
 export default function AdminDashboard({ setAdmin }) {
   const [tab, setTab] = useState("students");
   const [students, setStudents] = useState([]);
   const [games, setGames] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [grades, setGrades] = useState([]);
   const [form, setForm] = useState({});
   const [editId, setEditId] = useState(null);
   const [selectedPurchases, setSelectedPurchases] = useState([]);
@@ -19,6 +49,7 @@ export default function AdminDashboard({ setAdmin }) {
     fetchStudents();
     fetchGames();
     fetchPurchases();
+    fetchGrades();
   }, []);
 
   const fetchStudents = async () => {
@@ -48,6 +79,15 @@ export default function AdminDashboard({ setAdmin }) {
     }
   };
 
+  const fetchGrades = async () => {
+    try {
+      const { data } = await api.get("/api/grades");
+      setGrades(data);
+    } catch (err) {
+      console.error("Error fetching grades:", err);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("admin");
     localStorage.removeItem("token");
@@ -62,6 +102,30 @@ export default function AdminDashboard({ setAdmin }) {
       setForm({});
       fetchStudents();
       alert("تم إضافة الطالب بنجاح");
+    } catch (err) {
+      alert(err.response?.data?.error || "حدث خطأ");
+    }
+  };
+
+  const handleAddGrade = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/api/grades", { name: form.gradeName });
+      setForm({});
+      fetchGrades();
+      alert("تم إضافة الصف بنجاح");
+    } catch (err) {
+      alert(err.response?.data?.error || "حدث خطأ");
+    }
+  };
+
+  const handleDeleteGrade = async (id) => {
+    if (!confirm("تأكيد حذف الصف?")) return;
+    try {
+      await api.delete(`/api/grades/${id}`);
+      fetchGrades();
+      fetchStudents();
+      alert("تم الحذف بنجاح");
     } catch (err) {
       alert(err.response?.data?.error || "حدث خطأ");
     }
@@ -154,6 +218,12 @@ export default function AdminDashboard({ setAdmin }) {
             👥 الطلاب
           </button>
           <button
+            onClick={() => setTab("grades")}
+            className={`tab-btn ${tab === "grades" ? "active" : ""}`}
+          >
+            🏫 الصفوف
+          </button>
+          <button
             onClick={() => setTab("games")}
             className={`tab-btn ${tab === "games" ? "active" : ""}`}
           >
@@ -185,28 +255,24 @@ export default function AdminDashboard({ setAdmin }) {
                 >
                   <div className="form-grid">
                     {!editId && (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="رقم الطالب"
-                          value={form.student_id || ""}
-                          onChange={(e) =>
-                            setForm({ ...form, student_id: e.target.value })
-                          }
-                          className="form-input"
-                          required
-                        />
-                        <input
-                          type="password"
-                          placeholder="كلمة المرور"
-                          value={form.password || ""}
-                          onChange={(e) =>
-                            setForm({ ...form, password: e.target.value })
-                          }
-                          className="form-input"
-                          required
-                        />
-                      </>
+                      <select
+                        value={form.grade_id || ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            grade_id: parseInt(e.target.value),
+                          })
+                        }
+                        className="form-input"
+                        required
+                      >
+                        <option value="">اختر الصف</option>
+                        {grades.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
                     )}
                     <input
                       type="text"
@@ -220,19 +286,19 @@ export default function AdminDashboard({ setAdmin }) {
                     />
                     <input
                       type="text"
-                      placeholder="الصف (مثال: الصف الأول)"
-                      value={form.grade || ""}
+                      placeholder="الشعبة (مثال: أ)"
+                      value={form.section || ""}
                       onChange={(e) =>
-                        setForm({ ...form, grade: e.target.value })
+                        setForm({ ...form, section: e.target.value })
                       }
                       className="form-input"
                     />
                     <input
                       type="text"
-                      placeholder="الشعبة (مثال: أ)"
-                      value={form.section || ""}
+                      placeholder="رقم واتساب (مثال: 96170123456)"
+                      value={form.phone || ""}
                       onChange={(e) =>
-                        setForm({ ...form, section: e.target.value })
+                        setForm({ ...form, phone: e.target.value })
                       }
                       className="form-input"
                     />
@@ -294,13 +360,13 @@ export default function AdminDashboard({ setAdmin }) {
                 <thead>
                   <tr>
                     <th>رقم الطالب</th>
+                    <th>كلمة المرور</th>
                     <th>الاسم</th>
                     <th>الصف</th>
                     <th>الشعبة</th>
-                    <th>كلمة المرور</th>
                     <th>النقاط</th>
                     <th>الدين</th>
-                    <th>الحد الأقصى</th>
+                    <th>رقم الواتساب</th>
                     <th>واتساب</th>
                     <th>إجراءات</th>
                   </tr>
@@ -314,14 +380,9 @@ export default function AdminDashboard({ setAdmin }) {
                         s.student_id.includes(form.searchStudent),
                     )
                     .map((s) => {
-                      const basePoints = s.initial_points || s.points;
-                      const maxDebt = Math.floor(basePoints * 0.1);
                       return (
                         <tr key={s.id}>
                           <td>{s.student_id}</td>
-                          <td>{s.name}</td>
-                          <td>{s.grade || '-'}</td>
-                          <td>{s.section || '-'}</td>
                           <td
                             style={{
                               color: "#667eea",
@@ -331,6 +392,9 @@ export default function AdminDashboard({ setAdmin }) {
                           >
                             {s.plain_password || "******"}
                           </td>
+                          <td>{s.name}</td>
+                          <td>{s.grade || "-"}</td>
+                          <td>{s.section || "-"}</td>
                           <td>{s.points}</td>
                           <td
                             style={{
@@ -340,11 +404,19 @@ export default function AdminDashboard({ setAdmin }) {
                           >
                             {s.debt > 0 ? `${s.debt} ⚠️` : "0 ✅"}
                           </td>
-                          <td style={{ color: "#666" }}>{maxDebt}</td>
+                          <td style={{ color: "#25D366", fontWeight: "600" }}>
+                            {s.phone || "-"}
+                          </td>
                           <td>
                             <button
                               onClick={() => {
-                                const message = `مرحباً ${s.name}! 👋\n\nبيانات حسابك في نظام PointsMarket:\n\n📱 رقم الطالب: ${s.student_id}\n🔐 كلمة المرور: ${s.plain_password}\n💰 نقاطك الحالية: ${s.points}\n\nرابط تسجيل الدخول:\n${window.location.origin}\n\nاحتفظ بهذه البيانات في مكان آمن! 🔒`;
+                                const message = WHATSAPP_MESSAGE(
+                                  s.name,
+                                  s.student_id,
+                                  s.plain_password,
+                                  s.points,
+                                  window.location.origin,
+                                );
                                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                                 window.open(whatsappUrl, "_blank");
                               }}
@@ -395,8 +467,151 @@ export default function AdminDashboard({ setAdmin }) {
             </div>
           )}
 
+          {tab === "grades" && (
+            <div>
+              <h2>🏫 إدارة الصفوف</h2>
+
+              <div className="form-section">
+                <h3>إضافة صف جديد</h3>
+                <form onSubmit={handleAddGrade}>
+                  <div className="form-grid">
+                    <input
+                      type="text"
+                      placeholder="اسم الصف (مثال: الصف الأول)"
+                      value={form.gradeName || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, gradeName: e.target.value })
+                      }
+                      className="form-input"
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="btn-submit">
+                    إضافة صف
+                  </button>
+                </form>
+              </div>
+
+              <div>
+                <h3>الصفوف الحالية</h3>
+                {grades.map((grade) => {
+                  const gradeStudents = students.filter(
+                    (s) => s.grade_id === grade.id,
+                  );
+                  return (
+                    <div
+                      key={grade.id}
+                      style={{
+                        background: "#f8f9fa",
+                        padding: "1.5rem",
+                        borderRadius: "15px",
+                        marginBottom: "1.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <h3 style={{ margin: 0, color: "#10b981" }}>
+                          {grade.name} (ID: {grade.id}) - {gradeStudents.length}{" "}
+                          طالب
+                        </h3>
+                        <button
+                          onClick={() => handleDeleteGrade(grade.id)}
+                          style={{
+                            padding: "0.6rem 1.2rem",
+                            background: "#dc3545",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                          }}
+                        >
+                          🗑️ حذف الصف
+                        </button>
+                      </div>
+                      {gradeStudents.length > 0 ? (
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>رقم الطالب</th>
+                              <th>الاسم</th>
+                              <th>الشعبة</th>
+                              <th>النقاط</th>
+                              <th>الدين</th>
+                              <th>إجراءات</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {gradeStudents.map((s) => (
+                              <tr key={s.id}>
+                                <td>{s.student_id}</td>
+                                <td>{s.name}</td>
+                                <td>{s.section || "-"}</td>
+                                <td>{s.points}</td>
+                                <td
+                                  style={{
+                                    color: s.debt > 0 ? "#f5576c" : "#28a745",
+                                    fontWeight: "700",
+                                  }}
+                                >
+                                  {s.debt > 0 ? `${s.debt} ⚠️` : "0 ✅"}
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() => {
+                                      setEditId(s.id);
+                                      setForm({
+                                        name: s.name,
+                                        grade_id: s.grade_id,
+                                        section: s.section,
+                                        points: s.points,
+                                        debt: s.debt,
+                                      });
+                                      setTab("students");
+                                    }}
+                                    className="btn-edit"
+                                  >
+                                    تعديل
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteStudent(s.id)}
+                                    className="btn-delete"
+                                  >
+                                    حذف
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p
+                          style={{
+                            textAlign: "center",
+                            color: "#999",
+                            padding: "2rem",
+                          }}
+                        >
+                          لا يوجد طلاب في هذا الصف
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {tab === "games" && (
             <div>
+              <GamesExcelUpload onSuccess={fetchGames} />
+
               <div style={{ marginBottom: "1rem" }}>
                 <input
                   type="text"
@@ -602,11 +817,9 @@ export default function AdminDashboard({ setAdmin }) {
                         )
                           return;
                         try {
-                          await Promise.all(
-                            selectedPurchases.map((id) =>
-                              api.delete(`/api/purchases/${id}`),
-                            ),
-                          );
+                          for (const id of selectedPurchases) {
+                            await api.delete(`/api/purchases/${id}`);
+                          }
                           alert(
                             `تم حذف ${selectedPurchases.length} عملية بنجاح`,
                           );
@@ -744,49 +957,230 @@ export default function AdminDashboard({ setAdmin }) {
               <h2>📊 التقارير والإحصائيات</h2>
 
               {/* تقرير حسب الصفوف */}
-              <div style={{ marginBottom: '3rem' }}>
-                <h3 style={{ marginBottom: '1.5rem', color: '#10b981' }}>🏫 تقرير حسب الصفوف</h3>
+              <div style={{ marginBottom: "3rem" }}>
+                <h3 style={{ marginBottom: "1.5rem", color: "#10b981" }}>
+                  🏫 تقرير حسب الصفوف
+                </h3>
                 {(() => {
                   const gradeGroups = {};
-                  students.forEach(student => {
-                    const grade = student.grade || 'غير محدد';
+                  students.forEach((student) => {
+                    const grade = student.grade || "غير محدد";
                     if (!gradeGroups[grade]) gradeGroups[grade] = [];
                     gradeGroups[grade].push(student);
                   });
 
-                  return Object.keys(gradeGroups).sort().map(grade => {
-                    const gradeStudents = gradeGroups[grade];
-                    const gradePurchases = purchases.filter(p => gradeStudents.some(s => s.id === p.student_id));
-                    const gamesSummary = {};
-                    gradePurchases.forEach(p => {
-                      const gameName = p.games?.name || 'غير معروف';
-                      gamesSummary[gameName] = (gamesSummary[gameName] || 0) + 1;
-                    });
+                  return Object.keys(gradeGroups)
+                    .sort()
+                    .map((grade) => {
+                      const gradeStudents = gradeGroups[grade];
+                      const gradePurchases = purchases.filter((p) =>
+                        gradeStudents.some((s) => s.id === p.student_id),
+                      );
+                      const gamesSummary = {};
+                      gradePurchases.forEach((p) => {
+                        const gameName = p.games?.name || "غير معروف";
+                        gamesSummary[gameName] =
+                          (gamesSummary[gameName] || 0) + 1;
+                      });
 
-                    return (
-                      <div key={grade} style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '15px', marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                          <h4 style={{ margin: 0, color: '#10b981', fontSize: '1.3rem' }}>{grade} ({gradeStudents.length} طالب)</h4>
-                          <button onClick={() => {
-                            const printContent = `<html dir="rtl"><head><title>تقرير ${grade}</title><style>body{font-family:Arial;padding:20px}h1{color:#10b981}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#10b981;color:white}.summary{background:#e8f5e9;padding:15px;border-radius:10px;margin:20px 0}</style></head><body><h1>🏫 تقرير ${grade}</h1><p><strong>عدد الطلاب:</strong> ${gradeStudents.length}</p><div class="summary"><h2>🎮 ملخص الألعاب المطلوبة</h2><table><thead><tr><th>اللعبة</th><th>العدد</th></tr></thead><tbody>${Object.entries(gamesSummary).sort((a,b)=>b[1]-a[1]).map(([g,c])=>`<tr><td>${g}</td><td style="font-weight:bold;color:#10b981">${c}</td></tr>`).join('')}</tbody></table></div><h2>👥 تفاصيل الطلاب</h2>${gradeStudents.map(s=>{const sp=purchases.filter(p=>p.student_id===s.id);return`<div style="margin:20px 0;padding:15px;background:#f8f9fa;border-radius:10px"><h3>${s.name} (${s.student_id})</h3>${sp.length>0?`<table><thead><tr><th>اللعبة</th><th>النقاط</th><th>التاريخ</th></tr></thead><tbody>${sp.map((p,i)=>`<tr><td>${p.games?.name}</td><td>${p.points_paid}</td><td>${new Date(p.created_at).toLocaleDateString('ar')}</td></tr>`).join('')}</tbody></table>`:'<p style="color:#999">لم يشتري بعد</p>'}</div>`;}).join('')}<p style="margin-top:30px;color:#666;font-size:0.9rem">تاريخ الطباعة: ${new Date().toLocaleString('ar')}</p></body></html>`;
-                            const w=window.open('','','width=800,height=600');w.document.write(printContent);w.document.close();w.print();
-                          }} style={{ padding:'0.8rem 1.5rem',background:'linear-gradient(135deg,#10b981 0%,#059669 100%)',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600' }}>🖨️ طباعة {grade}</button>
-                        </div>
-                        <div style={{ background:'white',padding:'1rem',borderRadius:'10px',marginBottom:'1rem' }}>
-                          <h5 style={{ margin:'0 0 0.8rem 0',color:'#333' }}>🎮 الألعاب المطلوبة:</h5>
-                          <div style={{ display:'flex',flexWrap:'wrap',gap:'0.5rem' }}>
-                            {Object.entries(gamesSummary).length>0?Object.entries(gamesSummary).sort((a,b)=>b[1]-a[1]).map(([g,c])=>(<span key={g} style={{ background:'linear-gradient(135deg,#10b981 0%,#059669 100%)',color:'white',padding:'0.5rem 1rem',borderRadius:'20px',fontSize:'0.9rem',fontWeight:'600' }}>{g}: {c}</span>)):<span style={{color:'#999'}}>لا توجد مشتريات</span>}
+                      return (
+                        <div
+                          key={grade}
+                          style={{
+                            background: "#f8f9fa",
+                            padding: "1.5rem",
+                            borderRadius: "15px",
+                            marginBottom: "1.5rem",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "1rem",
+                            }}
+                          >
+                            <h4
+                              style={{
+                                margin: 0,
+                                color: "#10b981",
+                                fontSize: "1.3rem",
+                              }}
+                            >
+                              {grade} ({gradeStudents.length} طالب)
+                            </h4>
+                            <button
+                              onClick={() => {
+                                const printContent = `<html dir="rtl"><head><title>تقرير ${grade}</title><style>body{font-family:Arial;padding:20px}h1{color:#10b981}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{border:1px solid #ddd;padding:10px;text-align:right}th{background:#10b981;color:white}.summary{background:#e8f5e9;padding:15px;border-radius:10px;margin:20px 0}</style></head><body><h1>🏫 تقرير ${grade}</h1><p><strong>عدد الطلاب:</strong> ${gradeStudents.length}</p><div class="summary"><h2>🎮 ملخص الألعاب المطلوبة</h2><table><thead><tr><th>اللعبة</th><th>العدد</th></tr></thead><tbody>${Object.entries(
+                                  gamesSummary,
+                                )
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(
+                                    ([g, c]) =>
+                                      `<tr><td>${g}</td><td style="font-weight:bold;color:#10b981">${c}</td></tr>`,
+                                  )
+                                  .join(
+                                    "",
+                                  )}</tbody></table></div><h2>👥 تفاصيل الطلاب</h2>${gradeStudents
+                                  .map((s) => {
+                                    const sp = purchases.filter(
+                                      (p) => p.student_id === s.id,
+                                    );
+                                    return `<div style="margin:20px 0;padding:15px;background:#f8f9fa;border-radius:10px"><h3>${s.name} (${s.student_id})</h3>${sp.length > 0 ? `<table><thead><tr><th>اللعبة</th><th>النقاط</th><th>التاريخ</th></tr></thead><tbody>${sp.map((p, i) => `<tr><td>${p.games?.name}</td><td>${p.points_paid}</td><td>${new Date(p.created_at).toLocaleDateString("ar")}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#999">لم يشتري بعد</p>'}</div>`;
+                                  })
+                                  .join(
+                                    "",
+                                  )}<p style="margin-top:30px;color:#666;font-size:0.9rem">تاريخ الطباعة: ${new Date().toLocaleString("ar")}</p></body></html>`;
+                                const w = window.open(
+                                  "",
+                                  "",
+                                  "width=800,height=600",
+                                );
+                                w.document.write(printContent);
+                                w.document.close();
+                                w.print();
+                              }}
+                              style={{
+                                padding: "0.8rem 1.5rem",
+                                background:
+                                  "linear-gradient(135deg,#10b981 0%,#059669 100%)",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontWeight: "600",
+                              }}
+                            >
+                              🖨️ طباعة {grade}
+                            </button>
                           </div>
-                        </div>
-                        <details style={{marginTop:'1rem'}}>
-                          <summary style={{ cursor:'pointer',padding:'0.8rem',background:'white',borderRadius:'8px',fontWeight:'600',color:'#333' }}>👥 عرض تفاصيل الطلاب ({gradeStudents.length})</summary>
-                          <div style={{marginTop:'1rem'}}>
-                            {gradeStudents.map(s=>{const sp=purchases.filter(p=>p.student_id===s.id);return(<div key={s.id} style={{ background:'white',padding:'1rem',borderRadius:'10px',marginBottom:'0.8rem' }}><div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem' }}><strong>{s.name}</strong><span style={{color:'#666',fontSize:'0.9rem'}}>{s.student_id}</span></div>{sp.length>0?(<ul style={{margin:0,paddingRight:'1.5rem',color:'#666'}}>{sp.map(p=>(<li key={p.id}>{p.games?.name} - {p.points_paid} نقطة</li>))}</ul>):(<p style={{margin:0,color:'#999',fontSize:'0.9rem'}}>لم يشتري بعد</p>)}</div>);})}
+                          <div
+                            style={{
+                              background: "white",
+                              padding: "1rem",
+                              borderRadius: "10px",
+                              marginBottom: "1rem",
+                            }}
+                          >
+                            <h5
+                              style={{ margin: "0 0 0.8rem 0", color: "#333" }}
+                            >
+                              🎮 الألعاب المطلوبة:
+                            </h5>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "0.5rem",
+                              }}
+                            >
+                              {Object.entries(gamesSummary).length > 0 ? (
+                                Object.entries(gamesSummary)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([g, c]) => (
+                                    <span
+                                      key={g}
+                                      style={{
+                                        background:
+                                          "linear-gradient(135deg,#10b981 0%,#059669 100%)",
+                                        color: "white",
+                                        padding: "0.5rem 1rem",
+                                        borderRadius: "20px",
+                                        fontSize: "0.9rem",
+                                        fontWeight: "600",
+                                      }}
+                                    >
+                                      {g}: {c}
+                                    </span>
+                                  ))
+                              ) : (
+                                <span style={{ color: "#999" }}>
+                                  لا توجد مشتريات
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </details>
-                      </div>
-                    );
-                  });
+                          <details style={{ marginTop: "1rem" }}>
+                            <summary
+                              style={{
+                                cursor: "pointer",
+                                padding: "0.8rem",
+                                background: "white",
+                                borderRadius: "8px",
+                                fontWeight: "600",
+                                color: "#333",
+                              }}
+                            >
+                              👥 عرض تفاصيل الطلاب ({gradeStudents.length})
+                            </summary>
+                            <div style={{ marginTop: "1rem" }}>
+                              {gradeStudents.map((s) => {
+                                const sp = purchases.filter(
+                                  (p) => p.student_id === s.id,
+                                );
+                                return (
+                                  <div
+                                    key={s.id}
+                                    style={{
+                                      background: "white",
+                                      padding: "1rem",
+                                      borderRadius: "10px",
+                                      marginBottom: "0.8rem",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        marginBottom: "0.5rem",
+                                      }}
+                                    >
+                                      <strong>{s.name}</strong>
+                                      <span
+                                        style={{
+                                          color: "#666",
+                                          fontSize: "0.9rem",
+                                        }}
+                                      >
+                                        {s.student_id}
+                                      </span>
+                                    </div>
+                                    {sp.length > 0 ? (
+                                      <ul
+                                        style={{
+                                          margin: 0,
+                                          paddingRight: "1.5rem",
+                                          color: "#666",
+                                        }}
+                                      >
+                                        {sp.map((p) => (
+                                          <li key={p.id}>
+                                            {p.games?.name} - {p.points_paid}{" "}
+                                            نقطة
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : (
+                                      <p
+                                        style={{
+                                          margin: 0,
+                                          color: "#999",
+                                          fontSize: "0.9rem",
+                                        }}
+                                      >
+                                        لم يشتري بعد
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    });
                 })()}
               </div>
 

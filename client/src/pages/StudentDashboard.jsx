@@ -92,8 +92,7 @@ export default function StudentDashboard({ student, setStudent }) {
     (sum, item) => sum + item.points * item.quantity,
     0,
   );
-  const basePoints = currentStudent.initial_points || currentStudent.points;
-  const maxDebt = Math.floor(basePoints * 0.1);
+  const maxDebt = Math.floor((currentStudent.initial_points || currentStudent.points) * 0.1);
   const availableDebt = maxDebt - currentStudent.debt;
   const totalAvailable = currentStudent.points + (useDebt ? availableDebt : 0);
   const remainingPoints = totalAvailable - cartTotal;
@@ -111,23 +110,40 @@ export default function StudentDashboard({ student, setStudent }) {
     setIsCheckingOut(true);
 
     try {
+      let currentPoints = currentStudent.points;
+      let currentDebt = currentStudent.debt;
+      
       for (const item of cart) {
         for (let i = 0; i < item.quantity; i++) {
-          await api.post("/api/purchases", {
+          const needsDebt = useDebt && currentPoints < item.points;
+          
+          const response = await api.post("/api/purchases", {
             student_id: student.id,
             game_id: item.id,
-            use_debt: useDebt && currentStudent.points < cartTotal,
+            use_debt: needsDebt,
           });
+          
+          if (response.data.newPoints !== undefined) {
+            currentPoints = response.data.newPoints;
+            currentDebt = response.data.newDebt;
+          }
         }
       }
 
+      setCurrentStudent(prev => ({
+        ...prev,
+        points: currentPoints,
+        debt: currentDebt
+      }));
+      
       alert("تم الشراء بنجاح!");
       setCart([]);
       setUseDebt(false);
       setShowConfirmModal(false);
-      fetchStudentData();
-      fetchPurchases();
+      await fetchStudentData();
+      await fetchPurchases();
     } catch (err) {
+      console.error('Purchase error:', err);
       alert(err.response?.data?.error || "حدث خطأ");
     } finally {
       setIsCheckingOut(false);

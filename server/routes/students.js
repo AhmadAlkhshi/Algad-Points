@@ -30,20 +30,41 @@ router.get('/:id', verifyToken, async (req, res) => {
 
 // إضافة طالب
 router.post('/', verifyToken, verifyAdmin, async (req, res) => {
-  const { student_id, password, name, grade, section, points } = req.body;
+  const { name, grade_id, section, points, password, phone } = req.body;
   
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // توليد رقم الطالب تلقائياً
+  const { data: students, error: studentsError } = await supabase
+    .from('students')
+    .select('student_id')
+    .eq('grade_id', grade_id)
+    .order('student_id', { ascending: false })
+    .limit(1);
+
+  let studentId;
+  if (students && students.length > 0) {
+    const lastId = parseInt(students[0].student_id);
+    studentId = (lastId + 1).toString();
+  } else {
+    studentId = (grade_id * 10000 + 1).toString();
+  }
+
+  // توليد كلمة مرور عشوائية 8 أرقام
+  const generatedPassword = password || Math.floor(10000000 + Math.random() * 90000000).toString();
+  
+  const hashedPassword = await bcrypt.hash(generatedPassword, 10);
   const initialPoints = points || 0;
   
   const { data, error } = await supabase
     .from('students')
     .insert([{ 
-      student_id, 
+      student_id: studentId, 
       password: hashedPassword, 
-      plain_password: password,
+      plain_password: generatedPassword,
       name, 
-      grade, 
-      section, 
+      grade_id,
+      grade: null,
+      section,
+      phone,
       points: initialPoints,
       initial_points: initialPoints,
       debt: 0 
@@ -57,11 +78,11 @@ router.post('/', verifyToken, verifyAdmin, async (req, res) => {
 
 // تعديل طالب
 router.put('/:id', verifyToken, verifyAdmin, async (req, res) => {
-  const { name, grade, section, points, debt } = req.body;
+  const { name, grade, section, points, debt, phone } = req.body;
   
   const { data, error } = await supabase
     .from('students')
-    .update({ name, grade, section, points, debt })
+    .update({ name, grade, section, points, debt, phone })
     .eq('id', req.params.id)
     .select()
     .single();

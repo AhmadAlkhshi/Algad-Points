@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import api from '../api';
 
 export default function ExcelUpload({ onSuccess }) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState([]);
+  const [grades, setGrades] = useState([]);
+
+  useEffect(() => {
+    fetchGrades();
+  }, []);
+
+  const fetchGrades = async () => {
+    try {
+      const { data } = await api.get('/api/grades');
+      setGrades(data);
+    } catch (err) {
+      console.error('Error fetching grades:', err);
+    }
+  };
 
   const generatePassword = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -23,21 +37,19 @@ export default function ExcelUpload({ onSuccess }) {
       const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: '' });
 
       const students = json.map(row => {
-        let studentId = String(row['رقم الطالب'] || row['student_id'] || '').trim();
+        const gradeName = row['الصف'] || row['grade'] || '';
+        const gradeObj = grades.find(g => g.name === gradeName);
         
-        if (studentId && !studentId.startsWith('0')) {
-          studentId = '0' + studentId;
-        }
-        
-        if (studentId.length !== 10 || !studentId.startsWith('09')) {
-          alert(`رقم الطالب ${row['اسم الطالب'] || row['name']} غير صحيح: ${studentId}\nيجب أن يكون 10 أرقام ويبدأ بـ 09`);
+        if (!gradeObj) {
+          alert(`الصف "${gradeName}" غير موجود في النظام للطالب ${row['اسم الطالب'] || row['name']}`);
         }
         
         return {
           name: row['اسم الطالب'] || row['name'] || '',
-          student_id: studentId,
-          grade: row['الصف'] || row['grade'] || '',
+          grade_id: gradeObj?.id,
+          gradeName: gradeName,
           section: row['الشعبة'] || row['section'] || '',
+          phone: row['رقم واتساب'] || row['phone'] || '',
           password: generatePassword(),
           points: parseInt(row['النقاط'] || row['points'] || 0)
         };
@@ -76,18 +88,11 @@ export default function ExcelUpload({ onSuccess }) {
 
   const downloadTemplate = () => {
     const template = [
-      { 'اسم الطالب': 'محمد أحمد', 'رقم الطالب': '0912345678', 'الصف': 'العاشر', 'الشعبة': 'A', 'النقاط': 100 },
-      { 'اسم الطالب': 'فاطمة علي', 'رقم الطالب': '0987654321', 'الصف': 'التاسع', 'الشعبة': 'B', 'النقاط': 150 }
+      { 'اسم الطالب': 'محمد أحمد', 'الصف': 'الصف السابع', 'الشعبة': 'A', 'رقم واتساب': '96170123456', 'النقاط': 100 },
+      { 'اسم الطالب': 'فاطمة علي', 'الصف': 'الصف الثامن', 'الشعبة': 'B', 'رقم واتساب': '96170654321', 'النقاط': 150 }
     ];
     
     const ws = XLSX.utils.json_to_sheet(template);
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-      const cellAddress = XLSX.utils.encode_cell({ r: R, c: 1 });
-      if (ws[cellAddress]) {
-        ws[cellAddress].z = '@';
-      }
-    }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'الطلاب');
     XLSX.writeFile(wb, 'نموذج_الطلاب.xlsx');
@@ -124,9 +129,9 @@ export default function ExcelUpload({ onSuccess }) {
               <thead>
                 <tr style={{ background: '#f8f9fa' }}>
                   <th style={{ padding: '0.5rem', textAlign: 'right' }}>الاسم</th>
-                  <th style={{ padding: '0.5rem', textAlign: 'right' }}>الرقم</th>
                   <th style={{ padding: '0.5rem', textAlign: 'right' }}>الصف</th>
                   <th style={{ padding: '0.5rem', textAlign: 'right' }}>الشعبة</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'right' }}>رقم واتساب</th>
                   <th style={{ padding: '0.5rem', textAlign: 'right' }}>كلمة المرور</th>
                   <th style={{ padding: '0.5rem', textAlign: 'right' }}>النقاط</th>
                 </tr>
@@ -135,9 +140,9 @@ export default function ExcelUpload({ onSuccess }) {
                 {preview.map((student, i) => (
                   <tr key={i}>
                     <td style={{ padding: '0.5rem' }}>{student.name}</td>
-                    <td style={{ padding: '0.5rem' }}>{student.student_id}</td>
-                    <td style={{ padding: '0.5rem' }}>{student.grade}</td>
+                    <td style={{ padding: '0.5rem' }}>{student.gradeName} {student.grade_id ? `(ID: ${student.grade_id})` : '❌'}</td>
                     <td style={{ padding: '0.5rem' }}>{student.section}</td>
+                    <td style={{ padding: '0.5rem', color: '#25D366', fontWeight: '600' }}>{student.phone || '-'}</td>
                     <td style={{ padding: '0.5rem', color: '#667eea', fontWeight: '600' }}>{student.password}</td>
                     <td style={{ padding: '0.5rem' }}>{student.points}</td>
                   </tr>

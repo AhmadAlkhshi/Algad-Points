@@ -28,8 +28,7 @@ router.post('/', verifyToken, async (req, res) => {
 
   if (gameError) return res.status(404).json({ error: 'لعبة غير موجودة' });
 
-  const basePoints = student.initial_points || student.points;
-  const maxDebt = Math.floor(basePoints * 0.1);
+  const maxDebt = Math.floor((student.initial_points || student.points) * 0.1);
   const availableDebt = maxDebt - student.debt;
   const totalAvailable = student.points + (use_debt ? availableDebt : 0);
 
@@ -108,7 +107,8 @@ router.get('/', verifyToken, async (req, res) => {
 
 // حذف عملية شراء (للأدمن)
 router.delete('/:id', verifyToken, async (req, res) => {
-  if (req.user.role !== 'admin') {
+  if (!req.user || req.user.role !== 'admin') {
+    console.error('Unauthorized delete attempt:', req.user);
     return res.status(403).json({ error: 'غير مصرح - أدمن فقط' });
   }
 
@@ -123,13 +123,15 @@ router.delete('/:id', verifyToken, async (req, res) => {
   const student = purchase.students;
   const game = purchase.games;
 
-  let newPoints = student.points + game.points;
+  let newPoints = student.points;
   let newDebt = student.debt;
 
   if (purchase.used_debt) {
-    const debtAmount = Math.min(game.points, student.debt);
-    newDebt = Math.max(0, student.debt - debtAmount);
-    newPoints = student.points + (game.points - debtAmount);
+    // إذا كان الشراء بالدين، نرجع النقاط للدين
+    newDebt = Math.max(0, student.debt - game.points);
+  } else {
+    // إذا كان الشراء بالنقاط، نرجع النقاط للمحفظة
+    newPoints = student.points + game.points;
   }
 
   const { error: updateError } = await supabase

@@ -4,6 +4,7 @@ import api from "../api";
 import ImageUpload from "../components/ImageUpload";
 import ExcelUpload from "../components/ExcelUpload";
 import GamesExcelUpload from "../components/GamesExcelUpload";
+import * as XLSX from 'xlsx';
 import "../styles/AdminDashboard.css";
 
 // ========== رسالة الواتساب - غيرها من هون ==========
@@ -32,6 +33,41 @@ ${websiteUrl}
 
 احتفظ بهذه البيانات في مكان آمن! 
 `.trim();
+
+// ========== تنظيف رقم الواتساب ==========
+const formatWhatsAppNumber = (phone) => {
+  if (!phone) return null;
+  
+  let cleaned = phone.replace(/\D/g, '');
+  
+  if (cleaned.startsWith('00')) {
+    cleaned = cleaned.substring(2);
+  }
+  
+  if (cleaned.startsWith('09')) {
+    if (cleaned.length !== 10) {
+      return { error: `رقم سوري خاطئ: ${phone}\nيجب أن يكون 10 أرقام (09 + 8 أرقام)\nمثال: 0936123456` };
+    }
+    cleaned = '963' + cleaned.substring(1);
+  }
+  else if (cleaned.startsWith('05')) {
+    if (cleaned.length !== 10) {
+      return { error: `رقم إماراتي خاطئ: ${phone}\nيجب أن يكون 10 أرقام (05 + 8 أرقام)\nمثال: 0501234567` };
+    }
+    cleaned = '971' + cleaned.substring(1);
+  }
+  else if (cleaned.startsWith('0')) {
+    if (cleaned.length !== 8 && cleaned.length !== 9) {
+      return { error: `رقم لبناني خاطئ: ${phone}\nيجب أن يكون 8 أو 9 أرقام\nمثال: 03123456 أو 071234567` };
+    }
+    cleaned = '961' + cleaned.substring(1);
+  }
+  else if (!cleaned.startsWith('963') && !cleaned.startsWith('971') && !cleaned.startsWith('961')) {
+    return { error: `صيغة رقم غير مدعومة: ${phone}\nالرجاء إدخال رقم سوري أو إماراتي أو لبناني` };
+  }
+  
+  return { success: cleaned };
+};
 // =============================================
 
 export default function AdminDashboard({ setAdmin }) {
@@ -248,6 +284,55 @@ export default function AdminDashboard({ setAdmin }) {
             <div>
               <ExcelUpload onSuccess={fetchStudents} />
 
+              <div style={{ marginBottom: '1rem' }}>
+                <button
+                  onClick={() => {
+                    const studentsWithPhone = students.filter(s => s.phone);
+                    if (studentsWithPhone.length === 0) {
+                      alert('لا يوجد طلاب بأرقام واتساب');
+                      return;
+                    }
+                    
+                    const data = studentsWithPhone.map(s => {
+                      const result = formatWhatsAppNumber(s.phone);
+                      const cleanPhone = result?.success || s.phone;
+                      const message = WHATSAPP_MESSAGE(s.name, s.student_id, s.plain_password, s.points, window.location.origin);
+                      
+                      return {
+                        'رقم الواتساب': cleanPhone,
+                        'اسم الطالب': s.name,
+                        'رقم الطالب': s.student_id,
+                        'كلمة المرور': s.plain_password,
+                        'النقاط': s.points,
+                        'الرسالة': message
+                      };
+                    });
+                    
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'بيانات الواتساب');
+                    XLSX.writeFile(wb, `بيانات_واتساب_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    
+                    alert(`تم تصدير ${studentsWithPhone.length} طالب!\n\nالخطوة التالية:\n1. افتح WhatsApp Web\n2. استخدم أداة مجانية مثل WhatSender\n3. ارفع ملف Excel وابعث الرسائل`);
+                  }}
+                  style={{
+                    padding: '1rem 2rem',
+                    background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  📤 تصدير بيانات الواتساب ({students.filter(s => s.phone).length} طالب)
+                </button>
+              </div>
+
               <div className="form-section">
                 <h2>{editId ? "تعديل" : "إضافة"} طالب</h2>
                 <form
@@ -410,6 +495,15 @@ export default function AdminDashboard({ setAdmin }) {
                           <td>
                             <button
                               onClick={() => {
+                                const result = formatWhatsAppNumber(s.phone);
+                                if (!result) {
+                                  alert('لا يوجد رقم واتساب لهذا الطالب');
+                                  return;
+                                }
+                                if (result.error) {
+                                  alert(result.error);
+                                  return;
+                                }
                                 const message = WHATSAPP_MESSAGE(
                                   s.name,
                                   s.student_id,
@@ -417,20 +511,22 @@ export default function AdminDashboard({ setAdmin }) {
                                   s.points,
                                   window.location.origin,
                                 );
-                                const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                                const whatsappUrl = `https://wa.me/${result.success}?text=${encodeURIComponent(message)}`;
                                 window.open(whatsappUrl, "_blank");
                               }}
+                              disabled={!s.phone}
                               style={{
                                 padding: "0.5rem 1rem",
-                                background: "#25D366",
+                                background: s.phone ? "#25D366" : "#ccc",
                                 color: "white",
                                 border: "none",
                                 borderRadius: "8px",
-                                cursor: "pointer",
+                                cursor: s.phone ? "pointer" : "not-allowed",
                                 fontWeight: "600",
                                 display: "flex",
                                 alignItems: "center",
                                 gap: "0.3rem",
+                                opacity: s.phone ? 1 : 0.6,
                               }}
                             >
                               📱 إرسال

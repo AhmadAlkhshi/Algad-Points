@@ -7,6 +7,7 @@ import gamesRoutes from './routes/games.js';
 import purchasesRoutes from './routes/purchases.js';
 import uploadRoutes from './routes/upload.js';
 import gradesRoutes from './routes/grades.js';
+import sectionsRoutes from './routes/sections.js';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use('/api/games', gamesRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/grades', gradesRoutes);
+app.use('/api/sections', sectionsRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'PointsMarket API' });

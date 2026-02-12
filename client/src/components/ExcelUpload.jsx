@@ -24,9 +24,13 @@ export default function ExcelUpload({ onSuccess }) {
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // تحديث الصفوف أولاً والحصول على القيمة الجديدة
+    const { data: latestGrades } = await api.get('/api/grades');
+    setGrades(latestGrades);
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -38,10 +42,10 @@ export default function ExcelUpload({ onSuccess }) {
 
       const students = json.map(row => {
         const gradeName = row['الصف'] || row['grade'] || '';
-        const gradeObj = grades.find(g => g.name === gradeName);
+        const gradeObj = latestGrades.find(g => g.name === gradeName);
         
-        if (!gradeObj) {
-          alert(`الصف "${gradeName}" غير موجود في النظام للطالب ${row['اسم الطالب'] || row['name']}`);
+        if (!gradeObj && gradeName) {
+          console.warn(`الصف "${gradeName}" غير موجود في النظام`);
         }
         
         return {
